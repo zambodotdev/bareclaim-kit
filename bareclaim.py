@@ -13,6 +13,17 @@ Every checkable claim in the report comes back as one of:
   CONTRADICTED a receipt for the same step exists, but its saved
                values contradict the claim (the real values named)
 
+Backing is a match against the recorded values, checked three ways:
+the claim's numbers must live in the matched receipt, a number the
+claim binds to a named field ("apples at 20") must equal that
+field's recorded value, and a success claim cannot be backed by a
+receipt whose output carries an explicit failure marker (a false
+success flag such as "sent": false, an "error" field, or a
+rejected / failed / refused status) unless the claim itself reports
+that failure. Anything deeper about a tool's private success
+semantics is not judged: with no marker and no named field, BACKED
+is a lexical and value match, not a proof the action succeeded.
+
 A claim is checkable when it carries a number, names a tool that
 appears in the record, or counts receipts/calls/steps. Everything
 else is narrative and is skipped, never graded.
@@ -92,7 +103,90 @@ def _coerce_receipt(obj, idx):
         "tool": str(tool),
         "blob": blob,
         "values": set(numbers_in(blob)),
+        "fields": _field_values(inp, out),
+        "failures": _failure_markers(out),
     }
+
+
+# ------------------------------------------------------- recorded values
+
+SUCCESS_KEYS = {
+    "sent", "success", "successful", "ok", "completed", "complete",
+    "delivered", "stored", "saved", "published", "deployed", "charged",
+    "booked", "deleted", "created", "done", "executed", "passed",
+    "verified", "is_success", "sent_successfully",
+}
+FAIL_WORDS = {
+    "rejected", "failed", "failure", "error", "refused", "denied",
+    "cancelled", "canceled", "blocked", "not_executed", "not executed",
+}
+FAIL_PHRASES = (
+    "rejected before execution", "call rejected", "request rejected",
+    "execution failed", "request failed", "was refused", "call refused",
+)
+
+def _field_values(*objs):
+    """Map each field name to the numeric values recorded under it,
+    walking nested input/output objects. This is what lets a claim
+    that binds a number to a named field ("apples at 20") be checked
+    against that field, not just against the receipt's number set."""
+    fields = {}
+
+    def walk(node, key):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                walk(v, str(k).lower())
+        elif isinstance(node, list):
+            for v in node:
+                walk(v, key)
+        elif key:
+            if isinstance(node, bool):
+                return
+            if isinstance(node, (int, float)):
+                n = norm_num(str(node))
+                if n is not None:
+                    fields.setdefault(key, set()).add(n)
+            elif isinstance(node, str):
+                ns = numbers_in(node)
+                if len(ns) == 1:
+                    fields.setdefault(key, set()).add(ns[0])
+
+    for o in objs:
+        walk(o, "")
+    return fields
+
+def _failure_markers(out):
+    """Explicit failure signals in a receipt's output: a false success
+    flag, an error field, or a failure status. Only explicit markers
+    count; the checker does not guess at a tool's private semantics."""
+    markers = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                lk = str(k).lower()
+                if lk in ("error", "errors") and v:
+                    markers.append("error: %s" % str(v)[:80])
+                elif lk in SUCCESS_KEYS and v is False:
+                    markers.append("%s: false" % lk)
+                elif lk in ("status", "outcome", "state", "result_status") and isinstance(v, str):
+                    lv = v.strip().lower()
+                    if lv in FAIL_WORDS or any(lv.startswith(w) for w in FAIL_WORDS):
+                        markers.append("%s: %s" % (lk, v))
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+        elif isinstance(node, str):
+            low = node.lower()
+            for p in FAIL_PHRASES:
+                if p in low:
+                    markers.append("output states: %s" % p)
+                    break
+
+    walk(out)
+    return markers
+
 
 def load_record(text):
     text = text.strip()
@@ -139,6 +233,10 @@ class Record:
             if r["tool"]:
                 self.by_tool.setdefault(r["tool"], []).append(r)
         self.tools = set(self.by_tool)
+        self.fields_all = {}
+        for r in receipts:
+            for k, vs in r["fields"].items():
+                self.fields_all.setdefault(k, set()).update(vs)
 
     def tool_match(self, claim_text):
         """Tools from the record named in the claim, by full name or by
@@ -218,6 +316,35 @@ def action_match(claim, record):
                 return (w, recs)
     return None
 
+ASSOC_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_\-]*)\s+(?:at|of|=|:)\s*(\$?\d[\d,]*\.?\d*%?)", re.I)
+FAIL_ACK = ("reject", "refus", "fail", "error", "denied", "denial",
+            "blocked", "cancel", "not sent", "never sent", "unsuccessful")
+
+def claim_acknowledges_failure(claim):
+    low = claim.lower()
+    return any(w in low for w in FAIL_ACK)
+
+def field_contradiction(claim, fields_by_name, trecs, tool_label):
+    """If the claim binds a number to a field the record holds under
+    that name, the number must equal the field's recorded value.
+    Returns a CONTRADICTED tuple or None."""
+    for field, tok in ASSOC_RE.findall(claim):
+        key = field.lower()
+        if key not in fields_by_name:
+            continue
+        n = norm_num(tok)
+        if n is None:
+            continue
+        actual = fields_by_name[key]
+        if n not in actual:
+            holder = next((r for r in trecs if n not in r["fields"].get(key, set())
+                           and r["fields"].get(key)), trecs[0] if trecs else None)
+            rid = holder["id"] if holder else "the record"
+            seen = ", ".join(sorted(actual, key=lambda x: float(x)))
+            return ("CONTRADICTED",
+                    "receipt %s (%s) holds %s %s, not %s" % (rid, tool_label, key, seen, n))
+    return None
+
 def audit_claim(claim, record):
     """Returns (verdict, detail) for one claim, or None if the claim
     is narrative (not checkable)."""
@@ -250,6 +377,19 @@ def audit_claim(claim, record):
         trecs = record.by_tool.get(tool, [])
         if not trecs:
             return ("BARE", "no receipt for tool '%s' in the record" % tool)
+        if trecs and all(r["failures"] for r in trecs) \
+                and not claim_acknowledges_failure(claim):
+            first = trecs[0]
+            return ("CONTRADICTED",
+                    "receipt %s (%s) shows %s, not the success the claim states" % (
+                        first["id"], tool, "; ".join(first["failures"][:2])))
+        tool_fields = {}
+        for r in trecs:
+            for k, vs in r["fields"].items():
+                tool_fields.setdefault(k, set()).update(vs)
+        contra = field_contradiction(claim, tool_fields, trecs, tool)
+        if contra:
+            return contra
         tool_values = set()
         for r in trecs:
             tool_values |= r["values"]
@@ -265,7 +405,11 @@ def audit_claim(claim, record):
         cite = ", ".join(ids[:3]) + (" +%d more" % (len(ids) - 3) if len(ids) > 3 else "")
         return ("BACKED", "receipt %s (%s)" % (cite, tool))
 
-    # Numbers but no named tool: every number must live somewhere in the record.
+    # Numbers but no named tool: field-bound numbers first, then
+    # every number must live somewhere in the record.
+    contra = field_contradiction(claim, record.fields_all, record.receipts, "record")
+    if contra:
+        return contra
     missing = [n for n in nums if n not in record.values]
     if missing:
         return ("BARE", "the number %s appears nowhere in the record" % ", ".join(missing))

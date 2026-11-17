@@ -45,6 +45,8 @@ A claim is checkable when it carries a number, names a tool, counts the record (
 - **BARE**: nothing in the record backs the claim. That claim is a bareclaim. It might even be true; bare means nothing stands under it, and a reader has no way to tell it apart from an invented one.
 - **CONTRADICTED**: a receipt for the same step exists, but its saved values contradict the claim. The values the record actually holds are named.
 
+Two contradiction checks run past simple presence. A number the claim binds to a named field ("apples at 20") must equal that field's recorded value, not just appear somewhere in the receipt. And a success claim cannot be backed by a receipt whose output carries an explicit failure marker: a false success flag such as `"sent": false`, an `error` field, or a rejected, failed, or refused status. A claim that itself reports the failure is backed by that same receipt, the way an honest report should be.
+
 Exit code 0 when every checkable claim is backed, 1 when any claim is bare or contradicted, so it drops straight into CI, a cron, or the last step before a handover goes out. Agents and scripts get the machine-readable verdict with `--json`.
 
 ## Run it on the demo
@@ -124,6 +126,8 @@ Two honest notes on this proof. First, the wrap: the day's one free wrap-up hand
 A framework-shaped example (JSONL steps, `name`/`result` aliases) lives in [`examples/framework-export/`](examples/framework-export/), for jobs that never touched Zambo.
 
 ## Honest limits
+
+Backing, defined honestly: beyond the explicit failure markers and named-field values above, BACKED is a lexical and value match. The checker matches numbers, tool names, counts, and a small set of action words against the record; it does not judge a tool's private success semantics, and a record that carries no failure marker and no named field for a claim gives the checker nothing deeper to check. A stricter mode would need structured claims, each one bound to a specific attempt, output field, and expected value, with an adapter defining each tool's success condition. That boundary was pinned down by an outside test on launch day; the two fixtures it used now live in [`examples/regression-astra/`](examples/regression-astra/) as regression cases.
 
 Bareclaim grades backing, not truth. A claim can be accurate and still bare, because the record does not hold it; a claim can be backed and still be a bad conclusion drawn from real receipts, because receipts prove the saved result was not changed, not that the answer was right. Narrative is never graded: "the client was delighted" is not checkable, and the checker says so by skipping it. The checker is deliberately dumb about language. It matches numbers, tool names, counts, and a small set of action words. If your report narrates somebody else's actions ("the client emailed us"), use the JSON claims form and list only the claims you stand behind.
 

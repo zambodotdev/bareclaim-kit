@@ -1,0 +1,1 @@
+{"steps":[{"id":"synthetic-1","tool":"send_email","input":{},"output":{"sent":false,"error":"rejected before execution"}}]}
