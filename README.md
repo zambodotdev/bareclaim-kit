@@ -80,7 +80,7 @@ On November 17, 2026, the bareclaim launch job ran live on Zambo: a capability s
 
 - [capability_search: ranked zambo_universal first](https://zambo.dev/run/0b1adcec-1c74-46bc-a024-c93a608f809a)
 - [live_price: BTC at $64,818.57](https://zambo.dev/run/34cb5ee7-e7fa-4668-9ce7-83b2357182e9)
-- [live_price: ETH at $1,815.44](https://zambo.dev/run/f02f48f0-bd89-4c40-a6e3-80ed498f7c9f)
+- live_price: ETH at $1,815.44 (receipt f02f48f0 in [the job record](https://github.com/zambodotdev/bareclaim-kit/blob/main/examples/live-job/record.live.json))
 - [memory_remember: rejected before execution, missing its fact argument](https://zambo.dev/run/966560e3-a702-4728-b083-9c45018a636d)
 - [memory_remember: the retry stored the note](https://zambo.dev/run/4a994f84-0bf8-481d-a5df-83836827cb0e)
 - [handover: the wrap-up refusal, job saved](https://zambo.dev/run/2f002cf2-ee44-4e2e-89c5-6cfac28a6846)
