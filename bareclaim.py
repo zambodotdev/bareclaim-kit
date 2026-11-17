@@ -230,7 +230,8 @@ def audit_claim(claim, record):
     if not nums and not tools and not counts and not action:
         return None
     if action and not action[1]:
-        return ("BARE", "the report claims an '%s' action, but the record holds no receipt for it" % action[0])
+        article = "an" if action[0][0] in "aeiou" else "a"
+        return ("BARE", "the report claims %s '%s' action, but the record holds no receipt for it" % (article, action[0]))
     if action and action[1] and not tools:
         tools = [action[1][0]["tool"]]
 
@@ -387,10 +388,14 @@ def main(argv):
     if len(args) == 0:
         return run_demo()
     if len(args) != 2:
-        print("usage: bareclaim.py [--json] report.txt record.json | --init", file=sys.stderr)
+        print("usage: bareclaim.py [--json] report.txt record.json | --init | no arguments runs the demo", file=sys.stderr)
         return 2
-    report_text = read_arg(args[0])
-    record_text = read_arg(args[1])
+    try:
+        report_text = read_arg(args[0])
+        record_text = read_arg(args[1])
+    except OSError as exc:
+        print("bareclaim: cannot read %s" % exc.filename, file=sys.stderr)
+        return 2
     results, narrative, n = audit(report_text, record_text)
     return render(results, narrative, n, as_json)
 
