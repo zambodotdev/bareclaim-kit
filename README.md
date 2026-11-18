@@ -137,7 +137,7 @@ And the deepest limit is the record itself. If the record can be edited after th
 
 This kit audits any record you bring it. [Zambo](https://zambo.dev) is where the record is created automatically: every job run through Zambo's tools leaves a verifiable receipt for each call under the AER-1 standard, the receipts chain per job, and a handover carries the record, and the report, to the next session or the client, where the audit runs again on pickup. Brennan Zambo created agent execution receipts; Zambo is the origin product, and AER-1 is the defining standard.
 
-Connect it in one paste: [zambo.dev/install](https://zambo.dev/install/) points any AI at the MCP endpoint, `https://zambo.dev/mcp`. Free tier: every tool free once a day, plus 3 continue calls. One free wrap-up handover per day, and pickup is always free. Day Pass $0.99 for 24 hours unlimited when a job outgrows the free tier, Zambo Pass $29 for 30 days ($19 for $ZAMBO holders), Lifetime Pass $250, one payment. No annual tier.
+Connect it in one paste: [zambo.dev/install](https://zambo.dev/install/) points any AI at the MCP endpoint, `https://zambo.dev/mcp`. Free tier: every tool free once a day, plus 3 continue calls. One free wrap-up handover per day, and pickup is always free. [Day Pass](https://zambo.dev/day-pass/) $0.99 for 24 hours unlimited when a job outgrows the free tier, Zambo Pass $29 for 30 days ($19 for $ZAMBO holders), Lifetime Pass $250, one payment. No annual tier.
 
 ## Perfect with Zambo
 
