@@ -30,6 +30,8 @@ This is not hypothetical, and it is not only other people's agents. On November 
 
 Receipts prove what happened and that the record was not changed. [Zamback](https://github.com/zambodotdev/zamback-kit) checks the record against rules written before the run. Bareclaim checks the story told after the run against the record.
 
+Check any receipt yourself: https://zambo.dev/verify/
+
 ## The bareclaim pattern
 
 1. **Run the job so it leaves receipts.** Every step: which tool, what went in, what came back, under a receipt.
